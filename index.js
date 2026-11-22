@@ -1,13 +1,15 @@
+// 1. Node.js setup: load dependencies, configure Express, and create the MySQL pool.
 const express = require("express");
 const mysql2 = require("mysql2/promise");
-const ejs = require("ejs");
 const expressLayouts = require("express-ejs-layouts");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
+
+app.use(express.static("public"));
 
 // Read submitted form data.
 app.use(express.urlencoded({ extended: true }));
@@ -31,9 +33,17 @@ const dbConfig = {
 
 const dbConnection = mysql2.createPool(dbConfig);
 
-// Display all food entries.
+// 5. Express CRUD backend — Read: GET / lists entries and filters by food name.
+// DQL uses SELECT to read entries and GROUP_CONCAT to show their tags in one row.
 app.get("/", async (req, res) => {
-    const searchTerm = (req.query.search || "").trim();
+    const searchTerm =
+        typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const mealFilter =
+        typeof req.query.meal === "string" ? req.query.meal : "";
+
+    const [meals] = await dbConnection.execute(
+        "SELECT id, name FROM meals ORDER BY id"
+    );
 
     const query = `
         SELECT food_entries.id, dateTime, foodName, calories,
@@ -45,23 +55,27 @@ app.get("/", async (req, res) => {
             ON food_entries_tags.food_entry_id = food_entries.id
         LEFT JOIN tags ON food_entries_tags.tag_id = tags.id
         WHERE food_entries.foodName LIKE ?
+          AND (? = '' OR food_entries.meal_id = ?)
         GROUP BY food_entries.id, dateTime, foodName, calories,
                  servingSize, unit, meals.name
     `;
 
-    const [rows] = await dbConnection.execute(
-        query,
-        [`%${searchTerm}%`]
-    );
+    const [rows] = await dbConnection.execute(query, [
+        `%${searchTerm}%`,
+        mealFilter,
+        mealFilter
+    ]);
 
     res.render("index", {
         pageTitle: "Food Entries",
         foodEntries: rows,
-        searchTerm: searchTerm
+        meals,
+        searchTerm,
+        mealFilter
     });
 });
 
-// Display the create form with meal options.
+// 5. Express CRUD backend — Create: GET displays the form and POST saves it.
 app.get("/food-entry/create", async (req, res) => {
     const [meals] = await dbConnection.execute("SELECT * FROM meals");
     const [tags] = await dbConnection.execute("SELECT * FROM tags");
@@ -73,7 +87,7 @@ app.get("/food-entry/create", async (req, res) => {
     });
 });
 
-// Save a new food entry.
+// DML uses INSERT. The transaction saves the entry and its tags together.
 app.post("/food-entry/create", async (req, res, next) => {
     const connection = await dbConnection.getConnection();
 
@@ -128,7 +142,7 @@ app.post("/food-entry/create", async (req, res, next) => {
     }
 });
 
-// Display the edit form.
+// 5. Express CRUD backend — Update: GET reads the entry and POST applies the edits.
 app.get("/food-entry/:id/edit", async (req, res) => {
     const foodRecordID = req.params.id;
 
@@ -154,7 +168,7 @@ app.get("/food-entry/:id/edit", async (req, res) => {
     });
 });
 
-// Save changes to a food entry.
+// DML uses UPDATE and replaces the tag links within the same transaction.
 app.post("/food-entry/:id/edit", async (req, res, next) => {
     const connection = await dbConnection.getConnection();
 
@@ -207,7 +221,7 @@ app.post("/food-entry/:id/edit", async (req, res, next) => {
     }
 });
 
-// Display the delete confirmation.
+// 5. Express CRUD backend — Delete: GET shows confirmation and POST removes the entry.
 app.get("/food-entry/:id/delete", async (req, res) => {
     const [rows] = await dbConnection.execute(
         "SELECT * FROM food_entries WHERE id = ?",
@@ -220,7 +234,7 @@ app.get("/food-entry/:id/delete", async (req, res) => {
     });
 });
 
-// Delete a food entry.
+// DML uses DELETE. The foreign key cascades the deletion to the entry's tag links.
 app.post("/food-entry/:id/delete", async (req, res) => {
     await dbConnection.execute(
         "DELETE FROM food_entries WHERE id = ?",

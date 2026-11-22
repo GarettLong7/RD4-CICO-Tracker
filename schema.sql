@@ -1,3 +1,4 @@
+-- 2. DDL: Create the database and the main food entry table.
 CREATE DATABASE cico_tracker;
 USE cico_tracker;
 

@@ -1,10 +1,12 @@
 USE cico_tracker;
 
+-- 2. DDL: Create the tag lookup table.
 CREATE TABLE tags (
     id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL
 ) ENGINE = INNODB;
 
+-- 4. DML: Seed the tags displayed in the Express forms.
 INSERT INTO tags (name) VALUES
     ('Vegan'),
     ('Vegetarian'),
@@ -12,6 +14,7 @@ INSERT INTO tags (name) VALUES
     ('Low Carb'),
     ('Low Fat');
 
+-- 2. DDL: Create the junction table that links food entries to many tags.
 CREATE TABLE food_entries_tags (
     food_entry_id INT UNSIGNED NOT NULL,
     tag_id INT UNSIGNED NOT NULL,
