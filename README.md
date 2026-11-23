@@ -6,7 +6,7 @@ Built with Node.js, Express, EJS, MariaDB, and plain CSS. The app supports creat
 
 ## Database design
 
-![CICO Tracker ER diagram](./cico_ER_diagram_clean.png)
+![CICO Tracker ER diagram](./cico_ER_diagram.png)
 
 The database uses four tables. Each row in `food_entries` belongs to one meal from `meals`. The `food_entries_tags` junction table connects food entries to `tags` and prevents the same tag from being assigned to an entry twice.
 
